@@ -579,7 +579,7 @@ function App() {
 
       <footer>
         <a className="wordmark footer-mark" href="#top"><span className="crest"><Shield size={18} /></span> PROJECT <b>1966</b></a>
-        <p>Built by Matthew Paver as an independent data experiment. Not affiliated with FIFA or The FA. No betting, no odds, no nonsense.</p>
+        <p>Built by <a className="portfolio-link" href="https://matthewpaver.github.io/MatthewPaver/store/" target="_blank" rel="noreferrer">Matthew Paver</a> as an independent data experiment. Not affiliated with FIFA or The FA. No betting, no odds, no nonsense.</p>
         <span>Updated 13 July 2026 · v2.0</span>
       </footer>
 

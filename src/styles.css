@@ -802,6 +802,18 @@ footer {
 .footer-mark { color: white; }
 .footer-mark .crest { background: white; color: var(--navy); }
 footer p { margin: 0; color: rgba(255,255,255,.5); font-size: .6rem; line-height: 1.6; text-align: center; }
+footer p .portfolio-link {
+  color: rgba(255,255,255,.78);
+  text-decoration: underline;
+  text-decoration-color: rgba(204,255,51,.45);
+  text-underline-offset: .2em;
+  transition: color .2s ease, text-decoration-color .2s ease;
+}
+footer p .portfolio-link:hover,
+footer p .portfolio-link:focus-visible {
+  color: var(--lime);
+  text-decoration-color: var(--lime);
+}
 footer > span { color: rgba(255,255,255,.4); font: 400 .52rem/1.5 'IBM Plex Mono', monospace; text-align: right; }
 
 .toast {
