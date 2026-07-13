@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://matthewpaver.github.io/can-england-win-it/sitemap.xml
