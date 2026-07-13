@@ -30,6 +30,7 @@ describe('tournament model', () => {
       midfield: 20,
       nerve: 20,
       finalOpponent: 'Auto',
+      hero: 'Pickford',
     });
     const optimistic = simulateScenario({
       form: 90,
@@ -37,6 +38,7 @@ describe('tournament model', () => {
       midfield: 90,
       nerve: 90,
       finalOpponent: 'Auto',
+      hero: 'Bellingham',
     });
     expect(optimistic.trophy).toBeGreaterThan(pessimistic.trophy);
     expect(calculateRatingBoost({ ...DEFAULT_SETTINGS, form: 90 })).toBeGreaterThan(
@@ -46,5 +48,18 @@ describe('tournament model', () => {
 
   it('is symmetrical at equal ratings', () => {
     expect(knockoutWinProbability(1900, 1900)).toBe(0.5);
+  });
+
+  it('applies a transparent hero scenario boost', () => {
+    const bellingham = simulateScenario({ ...DEFAULT_SETTINGS, hero: 'Bellingham' });
+    const pickford = simulateScenario({ ...DEFAULT_SETTINGS, hero: 'Pickford' });
+    expect(bellingham.heroBoost).toBeGreaterThan(pickford.heroBoost);
+    expect(bellingham.trophy).toBeGreaterThan(pickford.trophy);
+  });
+
+  it('reports a wider model uncertainty range around the central estimate', () => {
+    const result = simulateScenario(DEFAULT_SETTINGS);
+    expect(result.uncertainty.low).toBeLessThan(result.trophy);
+    expect(result.uncertainty.high).toBeGreaterThan(result.trophy);
   });
 });

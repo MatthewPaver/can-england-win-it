@@ -3,23 +3,36 @@ import {
   ArrowDown,
   ArrowUpRight,
   Check,
+  ChevronDown,
   ChevronRight,
   Copy,
   Info,
   RotateCcw,
   Share2,
   Shield,
+  SlidersHorizontal,
   Sparkles,
   Trophy,
 } from 'lucide-react';
 import {
   DEFAULT_SETTINGS,
   FinalOpponent,
+  HEROES,
+  HeroId,
   ScenarioSettings,
   describeProbability,
   formatOneIn,
   simulateScenario,
 } from './model';
+import {
+  CinemaPhase,
+  MatchdayCinema,
+  MatchdayControls,
+  MOODS,
+  MoodId,
+  PRESSURES,
+  PressureId,
+} from './MatchdayMode';
 
 const MATCH_DATE = new Date('2026-07-15T19:00:00Z');
 
@@ -28,6 +41,7 @@ const clamp = (value: number) => Math.min(100, Math.max(0, value));
 const readInitialSettings = (): ScenarioSettings => {
   const params = new URLSearchParams(window.location.search);
   const opponent = params.get('final');
+  const hero = params.get('hero');
   return {
     form: clamp(Number(params.get('form')) || DEFAULT_SETTINGS.form),
     finishing: clamp(Number(params.get('finishing')) || DEFAULT_SETTINGS.finishing),
@@ -35,17 +49,23 @@ const readInitialSettings = (): ScenarioSettings => {
     nerve: clamp(Number(params.get('nerve')) || DEFAULT_SETTINGS.nerve),
     finalOpponent:
       opponent === 'France' || opponent === 'Spain' ? opponent : DEFAULT_SETTINGS.finalOpponent,
+    hero:
+      hero === 'Kane' || hero === 'Saka' || hero === 'Pickford' || hero === 'Bellingham'
+        ? hero
+        : DEFAULT_SETTINGS.hero,
   };
 };
 
-const sliderLabels: Record<keyof Omit<ScenarioSettings, 'finalOpponent'>, [string, string]> = {
+type PerformanceMetric = keyof Omit<ScenarioSettings, 'finalOpponent' | 'hero'>;
+
+const sliderLabels: Record<PerformanceMetric, [string, string]> = {
   form: ['Running on fumes', 'Flying'],
   finishing: ['Wasteful', 'Clinical'],
   midfield: ['Overrun', 'In control'],
   nerve: ['Heavy legs', 'Ice cold'],
 };
 
-const scenarioCopy: Record<keyof Omit<ScenarioSettings, 'finalOpponent'>, string> = {
+const scenarioCopy: Record<PerformanceMetric, string> = {
   form: 'Recent performance and physical momentum',
   finishing: 'How efficiently England convert their chances',
   midfield: 'Ability to dictate territory and possession',
@@ -102,7 +122,7 @@ function ScenarioSlider({
   value,
   onChange,
 }: {
-  name: keyof Omit<ScenarioSettings, 'finalOpponent'>;
+  name: PerformanceMetric;
   value: number;
   onChange: (value: number) => void;
 }) {
@@ -140,38 +160,121 @@ function TeamMark({ team, small = false }: { team: 'England' | 'Argentina' | 'Fr
 
 function App() {
   const [settings, setSettings] = useState<ScenarioSettings>(readInitialSettings);
+  const [committedSettings, setCommittedSettings] = useState<ScenarioSettings>(readInitialSettings);
+  const [mood, setMood] = useState<MoodId>('ready');
+  const [pressure, setPressure] = useState<PressureId>('steady');
   const [seed, setSeed] = useState(1966);
   const [running, setRunning] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [cinemaOpen, setCinemaOpen] = useState(false);
+  const [cinemaPhase, setCinemaPhase] = useState<CinemaPhase>('kickoff');
   const countdown = useCountdown();
-  const result = useMemo(() => simulateScenario(settings, 10_000, seed), [settings, seed]);
+  const result = useMemo(() => simulateScenario(committedSettings, 10_000, seed), [committedSettings, seed]);
 
   useEffect(() => {
     const params = new URLSearchParams();
-    params.set('form', String(settings.form));
-    params.set('finishing', String(settings.finishing));
-    params.set('midfield', String(settings.midfield));
-    params.set('nerve', String(settings.nerve));
-    if (settings.finalOpponent !== 'Auto') params.set('final', settings.finalOpponent);
+    params.set('form', String(committedSettings.form));
+    params.set('finishing', String(committedSettings.finishing));
+    params.set('midfield', String(committedSettings.midfield));
+    params.set('nerve', String(committedSettings.nerve));
+    params.set('hero', committedSettings.hero);
+    if (committedSettings.finalOpponent !== 'Auto') params.set('final', committedSettings.finalOpponent);
     window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
-  }, [settings]);
+  }, [committedSettings]);
+
+  useEffect(() => {
+    if (!cinemaOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previouslyFocused = document.activeElement;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setCinemaOpen(false);
+        setRunning(false);
+      }
+      if (event.key === 'Tab') {
+        const focusable = Array.from(document.querySelectorAll<HTMLElement>('.matchday-cinema button:not(:disabled)'));
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first || !last) return;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    const focusTimer = window.setTimeout(() => document.querySelector<HTMLButtonElement>('.cinema-close')?.focus(), 0);
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setCinemaPhase('result');
+      setRunning(false);
+      return () => {
+        window.clearTimeout(focusTimer);
+        document.body.style.overflow = previousOverflow;
+        window.removeEventListener('keydown', closeOnEscape);
+        if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
+      };
+    }
+
+    setCinemaPhase('kickoff');
+    const timers = [
+      window.setTimeout(() => setCinemaPhase('semi'), 650),
+      window.setTimeout(() => setCinemaPhase('final'), 1_550),
+      window.setTimeout(() => {
+        setCinemaPhase('result');
+        setRunning(false);
+      }, 2_650),
+    ];
+    return () => {
+      timers.forEach(window.clearTimeout);
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+      if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
+    };
+  }, [cinemaOpen, seed]);
 
   const setSetting = <K extends keyof ScenarioSettings>(key: K, value: ScenarioSettings[K]) => {
     setSettings((current) => ({ ...current, [key]: value }));
   };
 
   const runSimulation = () => {
+    setCommittedSettings({ ...settings });
     setRunning(true);
     setSeed(Date.now());
-    window.setTimeout(() => setRunning(false), 850);
+    setCinemaOpen(true);
   };
 
   const reset = () => {
     setSettings(DEFAULT_SETTINGS);
+    setCommittedSettings(DEFAULT_SETTINGS);
+    setMood('ready');
+    setPressure('steady');
     setSeed(1966);
   };
 
-  const shareText = `My model gives England a ${result.trophy.toFixed(1)}% chance of winning the World Cup. Try your own scenario:`;
+  const chooseMood = (nextMood: MoodId) => {
+    setMood(nextMood);
+    setSettings((current) => ({ ...current, ...MOODS[nextMood].values }));
+  };
+
+  const choosePressure = (nextPressure: PressureId) => {
+    setPressure(nextPressure);
+    setSettings((current) => ({ ...current, nerve: PRESSURES[nextPressure].nerve }));
+  };
+
+  const chooseHero = (hero: HeroId) => setSettings((current) => ({ ...current, hero }));
+
+  const closeCinema = () => {
+    setCinemaOpen(false);
+    setRunning(false);
+  };
+
+  const shareText = `I backed ${HEROES[committedSettings.hero].name}. My scenario gives England a ${result.trophy.toFixed(1)}% chance of winning the World Cup. Try yours:`;
 
   const share = async () => {
     try {
@@ -246,6 +349,7 @@ function App() {
               <div><strong>wins</strong><br />from 10,000 simulations</div>
             </div>
             <p className="verdict-line">{describeProbability(result.trophy)}.</p>
+            <span className="hero-model-range">Illustrative range {result.uncertainty.low.toFixed(0)}–{result.uncertainty.high.toFixed(0)}%</span>
           </div>
 
           <aside className="match-card" aria-label="Next match countdown">
@@ -270,17 +374,35 @@ function App() {
         </section>
 
         <section className="simulator-section" id="simulator" aria-labelledby="simulator-title">
-          <div className="section-label"><span>01</span> Set the conditions</div>
+          <div className="section-label"><span>01</span> Call the match</div>
           <div className="simulator-heading">
             <div>
-              <h2 id="simulator-title">YOU’RE THE<br />OPTIMIST-IN-CHIEF.</h2>
+              <h2 id="simulator-title">PICK THE STORY.<br />RUN THE FUTURE.</h2>
             </div>
-            <p>Football isn’t played on a spreadsheet. Tell the model which England turns up. Every control changes all 10,000 tournament runs.</p>
+            <p>Three quick calls. One dramatic simulation. The deeper numbers are still there when you want them.</p>
           </div>
 
-          <div className="control-board">
+          <MatchdayControls
+            settings={settings}
+            mood={mood}
+            pressure={pressure}
+            running={running}
+            onMood={chooseMood}
+            onPressure={choosePressure}
+            onHero={chooseHero}
+            onRun={runSimulation}
+          />
+
+          <details className="analyst-drawer">
+            <summary>
+              <span className="analyst-icon"><SlidersHorizontal size={21} /></span>
+              <span><small>Want the full model?</small><strong>Open analyst mode</strong></span>
+              <span className="analyst-summary-note">Fine-tune every assumption</span>
+              <ChevronDown className="analyst-chevron" size={21} />
+            </summary>
+            <div className="control-board">
             <div className="sliders-panel">
-              {(Object.keys(sliderLabels) as Array<keyof Omit<ScenarioSettings, 'finalOpponent'>>).map((name) => (
+              {(Object.keys(sliderLabels) as PerformanceMetric[]).map((name) => (
                 <ScenarioSlider key={name} name={name} value={settings[name]} onChange={(value) => setSetting(name, value)} />
               ))}
 
@@ -304,7 +426,7 @@ function App() {
 
               <div className="control-actions">
                 <button className="run-button" type="button" onClick={runSimulation} disabled={running}>
-                  <span>{running ? 'Running 10,000 futures…' : 'Run the tournament'}</span>
+                  <span>{running ? 'Playing 10,000 futures…' : 'Play with these settings'}</span>
                   <ChevronRight size={21} />
                 </button>
                 <button className="reset-button" type="button" onClick={reset}><RotateCcw size={16} /> Reset</button>
@@ -315,7 +437,7 @@ function App() {
               <div className="results-header">
                 <div>
                   <span className="eyebrow">Simulation report</span>
-                  <strong>England’s route</strong>
+                  <strong>Central estimate</strong>
                 </div>
                 <span className="run-id">RUN / {String(seed).slice(-6)}</span>
               </div>
@@ -332,10 +454,16 @@ function App() {
                   <div className="meter"><i style={{ width: `${result.finalWin}%` }} /></div>
                 </div>
                 <div className="trophy-row">
-                  <span>Become world champions</span>
+                  <span>Lift the trophy</span>
                   <strong>{result.trophy.toFixed(1)}%</strong>
                   <Trophy aria-hidden="true" />
                 </div>
+              </div>
+
+              <div className="uncertainty-row">
+                <span>Illustrative model range</span>
+                <strong>{result.uncertainty.low.toFixed(0)}–{result.uncertainty.high.toFixed(0)}%</strong>
+                <div className="uncertainty-track"><i style={{ left: `${result.uncertainty.low}%`, width: `${result.uncertainty.high - result.uncertainty.low}%` }} /><b style={{ left: `${result.trophy}%` }} /></div>
               </div>
 
               <div className="outcome-block">
@@ -354,7 +482,7 @@ function App() {
 
               <div className="model-note">
                 <Info size={18} />
-                <p>Your assumptions add <strong>{result.ratingBoost >= 0 ? '+' : ''}{result.ratingBoost.toFixed(0)} rating points</strong> to England’s neutral baseline. The model then simulates both semi-finals and the final.</p>
+                <p>Your performance calls add <strong>{result.performanceBoost >= 0 ? '+' : ''}{result.performanceBoost.toFixed(0)} points</strong>; {HEROES[committedSettings.hero].name} adds a playful <strong>+{result.heroBoost} wildcard boost</strong>. This is scenario storytelling, not measured player value.</p>
               </div>
 
               <div className="share-actions">
@@ -363,6 +491,7 @@ function App() {
               </div>
             </div>
           </div>
+          </details>
         </section>
 
         <section className="route-section" id="route" aria-labelledby="route-title">
@@ -393,7 +522,7 @@ function App() {
               <div className="fixture-card final-card">
                 <div className="unknown-team">
                   <span className="mini-marks"><TeamMark team="France" small /><TeamMark team="Spain" small /></span>
-                  <span>{settings.finalOpponent === 'Auto' ? 'FRA / ESP' : settings.finalOpponent}</span>
+                  <span>{committedSettings.finalOpponent === 'Auto' ? 'FRA / ESP' : committedSettings.finalOpponent}</span>
                 </div>
                 <div><TeamMark team="England" small /><span>England</span><b>{result.trophy.toFixed(0)}%</b></div>
                 <em>New York / New Jersey</em>
@@ -414,13 +543,13 @@ function App() {
           <div className="section-label"><span>03</span> Behind the number</div>
           <div className="method-grid">
             <div className="method-heading">
-              <h2 id="method-title">NO CRYSTAL BALL.<br />JUST 10,000<br /><span>COIN FLIPS.</span></h2>
+              <h2 id="method-title">NO CRYSTAL BALL.<br />JUST 10,000<br /><span>WEIGHTED FUTURES.</span></h2>
             </div>
             <div className="method-copy">
               <p className="lead">This is an explainable scenario model—not a forecast, betting product or claim to know the future.</p>
               <div className="method-steps">
                 <div><span>01</span><p><strong>Start with team strength.</strong> Each semi-finalist receives an illustrative Elo-style rating based on recent international strength.</p></div>
-                <div><span>02</span><p><strong>Add your assumptions.</strong> Form, finishing, midfield control and nerve adjust England’s rating up or down.</p></div>
+                <div><span>02</span><p><strong>Add your assumptions.</strong> Matchday choices adjust England’s rating, while the player wildcard adds a clearly labelled entertainment boost.</p></div>
                 <div><span>03</span><p><strong>Play both matches 10,000 times.</strong> A seeded Monte Carlo simulation determines every semi-final and final.</p></div>
               </div>
               <div className="method-links">
@@ -432,7 +561,7 @@ function App() {
               <span className="eyebrow">The engine</span>
               <code>P(win) = 1 / (1 + 10<sup>ΔR / 330</sup>)</code>
               <p>The gap between team ratings becomes a match probability. Your controls change England’s side of that equation.</p>
-              <div className="quality-stamp"><Check size={17} /> Deterministic & tested</div>
+              <div className="quality-stamp"><Check size={17} /> Tested & transparent</div>
             </aside>
           </div>
         </section>
@@ -451,8 +580,18 @@ function App() {
       <footer>
         <a className="wordmark footer-mark" href="#top"><span className="crest"><Shield size={18} /></span> PROJECT <b>1966</b></a>
         <p>Built by Matthew Paver as an independent data experiment. Not affiliated with FIFA or The FA. No betting, no odds, no nonsense.</p>
-        <span>Updated 13 July 2026 · v1.0</span>
+        <span>Updated 13 July 2026 · v2.0</span>
       </footer>
+
+      <MatchdayCinema
+        open={cinemaOpen}
+        phase={cinemaPhase}
+        result={result}
+        hero={committedSettings.hero}
+        onClose={closeCinema}
+        onShare={share}
+        onRerun={runSimulation}
+      />
 
       <div className={`toast ${copied ? 'is-visible' : ''}`} role="status"><Check size={16} /> Scenario copied to clipboard</div>
     </div>

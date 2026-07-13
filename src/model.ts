@@ -1,4 +1,47 @@
 export type FinalOpponent = 'Auto' | 'France' | 'Spain';
+export type HeroId = 'Bellingham' | 'Kane' | 'Saka' | 'Pickford';
+
+export const HEROES: Record<HeroId, {
+  name: string;
+  number: number;
+  role: string;
+  flavour: string;
+  context: string;
+  boost: number;
+}> = {
+  Bellingham: {
+    name: 'Jude Bellingham',
+    number: 10,
+    role: 'The scriptwriter',
+    flavour: 'Big moments & midfield drive',
+    context: '6 tournament goals',
+    boost: 12,
+  },
+  Kane: {
+    name: 'Harry Kane',
+    number: 9,
+    role: 'The finisher',
+    flavour: 'Chances become goals',
+    context: '6 goals · captain',
+    boost: 11,
+  },
+  Saka: {
+    name: 'Bukayo Saka',
+    number: 7,
+    role: 'The spark',
+    flavour: 'Width, invention & chaos',
+    context: 'Right-side threat',
+    boost: 8,
+  },
+  Pickford: {
+    name: 'Jordan Pickford',
+    number: 1,
+    role: 'The wall',
+    flavour: 'Saves when margins vanish',
+    context: 'Pressure specialist',
+    boost: 7,
+  },
+};
 
 export type ScenarioSettings = {
   form: number;
@@ -6,6 +49,7 @@ export type ScenarioSettings = {
   midfield: number;
   nerve: number;
   finalOpponent: FinalOpponent;
+  hero: HeroId;
 };
 
 export type SimulationResult = {
@@ -14,6 +58,9 @@ export type SimulationResult = {
   trophy: number;
   finalOpponentShares: { France: number; Spain: number };
   ratingBoost: number;
+  performanceBoost: number;
+  heroBoost: number;
+  uncertainty: { low: number; high: number };
   trials: number;
 };
 
@@ -23,6 +70,7 @@ export const DEFAULT_SETTINGS: ScenarioSettings = {
   midfield: 72,
   nerve: 65,
   finalOpponent: 'Auto',
+  hero: 'Bellingham',
 };
 
 const RATINGS = {
@@ -43,11 +91,14 @@ const seededRandom = (seed: number) => {
   };
 };
 
-export const calculateRatingBoost = (settings: ScenarioSettings) =>
+export const calculatePerformanceBoost = (settings: ScenarioSettings) =>
   (settings.form - 50) * 0.62 +
   (settings.finishing - 50) * 0.48 +
   (settings.midfield - 50) * 0.42 +
   (settings.nerve - 50) * 0.44;
+
+export const calculateRatingBoost = (settings: ScenarioSettings) =>
+  calculatePerformanceBoost(settings) + HEROES[settings.hero].boost;
 
 export const knockoutWinProbability = (teamRating: number, opponentRating: number) =>
   1 / (1 + 10 ** ((opponentRating - teamRating) / 330));
@@ -58,6 +109,8 @@ export function simulateScenario(
   seed = 1966,
 ): SimulationResult {
   const random = seededRandom(seed);
+  const performanceBoost = calculatePerformanceBoost(settings);
+  const heroBoost = HEROES[settings.hero].boost;
   const boost = calculateRatingBoost(settings);
   const englandRating = RATINGS.England + boost;
   const semiProbability = knockoutWinProbability(englandRating, RATINGS.Argentina);
@@ -86,15 +139,24 @@ export function simulateScenario(
     }
   }
 
+  const trophy = (trophyWins / trials) * 100;
+  const uncertaintyWidth = Math.max(4.5, trophy * 0.2);
+
   return {
     semiWin: (semiWins / trials) * 100,
     finalWin: semiWins ? (trophyWins / semiWins) * 100 : 0,
-    trophy: (trophyWins / trials) * 100,
+    trophy,
     finalOpponentShares: {
       France: (franceFinals / trials) * 100,
       Spain: (spainFinals / trials) * 100,
     },
     ratingBoost: boost,
+    performanceBoost,
+    heroBoost,
+    uncertainty: {
+      low: Math.max(0, trophy - uncertaintyWidth),
+      high: Math.min(100, trophy + uncertaintyWidth),
+    },
     trials,
   };
 }
