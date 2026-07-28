@@ -171,7 +171,7 @@ export function MatchdayCinema({
     <div className={`matchday-cinema phase-${phase}`} role="dialog" aria-modal="true" aria-labelledby="cinema-title">
       <button className="cinema-close" type="button" aria-label="Close simulation" onClick={onClose}><X size={20} /></button>
       <div className="cinema-topline">
-        <span>PROJECT 1966</span><span className="cinema-live"><i /> LIVE MODEL</span><span>RUNNING 10,000</span>
+        <span>PROJECT 1966</span><span className="cinema-live"><i /> ARCHIVED MODEL</span><span>RUNNING 10,000</span>
       </div>
 
       <div className="cinema-stage">
