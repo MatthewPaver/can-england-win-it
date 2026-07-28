@@ -34,8 +34,6 @@ import {
   PressureId,
 } from './MatchdayMode';
 
-const MATCH_DATE = new Date('2026-07-15T19:00:00Z');
-
 const clamp = (value: number) => Math.min(100, Math.max(0, value));
 
 const readInitialSettings = (): ScenarioSettings => {
@@ -71,23 +69,6 @@ const scenarioCopy: Record<PerformanceMetric, string> = {
   midfield: 'Ability to dictate territory and possession',
   nerve: 'Resilience in extra time and high-pressure moments',
 };
-
-function useCountdown() {
-  const calculate = () => Math.max(0, MATCH_DATE.getTime() - Date.now());
-  const [difference, setDifference] = useState(calculate);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setDifference(calculate()), 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const totalMinutes = Math.floor(difference / 60_000);
-  return {
-    days: Math.floor(totalMinutes / 1_440),
-    hours: Math.floor((totalMinutes % 1_440) / 60),
-    minutes: totalMinutes % 60,
-  };
-}
 
 function ProbabilityDial({ value, running }: { value: number; running: boolean }) {
   const radius = 124;
@@ -168,7 +149,6 @@ function App() {
   const [copied, setCopied] = useState(false);
   const [cinemaOpen, setCinemaOpen] = useState(false);
   const [cinemaPhase, setCinemaPhase] = useState<CinemaPhase>('kickoff');
-  const countdown = useCountdown();
   const result = useMemo(() => simulateScenario(committedSettings, 10_000, seed), [committedSettings, seed]);
 
   useEffect(() => {
@@ -304,12 +284,11 @@ function App() {
       <a className="skip-link" href="#simulator">Skip to simulator</a>
       <div className="ticker" role="status">
         <div className="ticker-inner">
-          <span className="live-dot" />
-          <strong>Project 1966</strong>
-          <span>10,000 possible futures</span>
-          <span className="ticker-score">NOR 1–2 ENG <em>AET</em></span>
-          <span>Next: England v Argentina</span>
-          <span className="desktop-only">Wed 15 July · 20:00 BST</span>
+          <strong>Project 1966 · retrospective</strong>
+          <span>Archived scenario model</span>
+          <span className="ticker-score">ENG 1–2 ARG</span>
+          <span>England exited in the semi-final</span>
+          <span className="desktop-only">Spain won the final 1–0 AET</span>
         </div>
       </div>
 
@@ -330,12 +309,12 @@ function App() {
           <div className="hero-grid-lines" aria-hidden="true" />
           <div className="hero-copy">
             <div className="edition-line">
-              <span>World Cup 2026</span>
-              <span>Model update 13.07.26</span>
+              <span>World Cup 2026 retrospective</span>
+              <span>Archived 28.07.26</span>
             </div>
             <h1 id="hero-title">CAN<br /><span>ENGLAND</span><br />WIN IT?</h1>
-            <p className="hero-intro">Two matches. Four teams. One question the whole country is asking. Tune the assumptions, run the numbers and see if football is coming home.</p>
-            <a className="down-link" href="#simulator">Build your scenario <ArrowDown size={18} /></a>
+            <p className="hero-intro">A preserved pre-match scenario model from England’s 2026 World Cup run. The tournament is over; the interactive assumptions remain available as a product and modelling retrospective.</p>
+            <a className="down-link" href="#simulator">Explore the archived model <ArrowDown size={18} /></a>
           </div>
 
           <div className="hero-result">
@@ -352,24 +331,22 @@ function App() {
             <span className="hero-model-range">Illustrative range {result.uncertainty.low.toFixed(0)}–{result.uncertainty.high.toFixed(0)}%</span>
           </div>
 
-          <aside className="match-card" aria-label="Next match countdown">
+          <aside className="match-card" aria-label="Recorded semi-final result">
             <div className="match-card-head">
-              <span>Semi-final · Match 102</span>
-              <span>15 Jul</span>
+              <span>Semi-final · final score</span>
+              <span>15 Jul 2026</span>
             </div>
             <div className="match-teams">
               <div><TeamMark team="England" /><strong>England</strong></div>
               <span>v</span>
               <div><TeamMark team="Argentina" /><strong>Argentina</strong></div>
             </div>
-            <div className="countdown">
-              <div><strong>{String(countdown.days).padStart(2, '0')}</strong><span>days</span></div>
+            <div className="countdown final-score">
+              <div><strong>1</strong><span>England</span></div>
               <i>:</i>
-              <div><strong>{String(countdown.hours).padStart(2, '0')}</strong><span>hours</span></div>
-              <i>:</i>
-              <div><strong>{String(countdown.minutes).padStart(2, '0')}</strong><span>mins</span></div>
+              <div><strong>2</strong><span>Argentina</span></div>
             </div>
-            <span className="venue">Atlanta · 20:00 BST</span>
+            <span className="venue">Tournament complete · archived model</span>
           </aside>
         </section>
 
@@ -498,7 +475,7 @@ function App() {
           <div className="section-label light"><span>02</span> The last four</div>
           <div className="route-heading">
             <h2 id="route-title">TWO WINS<br />FROM FOREVER.</h2>
-            <p>England are in their fourth men’s World Cup semi-final. The model begins here—everything before it is already written.</p>
+            <p>England reached their fourth men’s World Cup semi-final and lost 2–1 to Argentina. This preserved model shows the assumptions explored before that match.</p>
           </div>
 
           <div className="bracket" aria-label="World Cup semi-final bracket">
@@ -580,7 +557,7 @@ function App() {
       <footer>
         <a className="wordmark footer-mark" href="#top"><span className="crest"><Shield size={18} /></span> PROJECT <b>1966</b></a>
         <p>Built by <a className="portfolio-link" href="https://matthewpaver.github.io/MatthewPaver/store/" target="_blank" rel="noreferrer">Matthew Paver</a> as an independent data experiment. Not affiliated with FIFA or The FA. No betting, no odds, no nonsense.</p>
-        <span>Updated 13 July 2026 · v2.0</span>
+        <span>Archived 28 July 2026 · v2.1</span>
       </footer>
 
       <MatchdayCinema
